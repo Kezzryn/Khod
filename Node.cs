@@ -42,9 +42,7 @@ internal class Node
     public string GetSVG()
     {
         string node = $"<circle cx=\"{WorldX}\" cy=\"{WorldY}\" r=\"{Radius}\" style=\"fill:red;stroke:black;stroke-width:3;fill-opacity:0.0\"/>";
-        //string node = $"<circle cx=\"{X}\" cy=\"{Y}\" r=\"{Radius}\" style=\"fill:none;stroke:black;stroke-width:3\"/>";
-        //string node = $"<circle cx=\"{X}\" cy=\"{Y}\" r=\"{Radius}\"/>\n";
-        
+
         return DrawTraceLine() + node + DrawSubNodes(); 
     }
 
@@ -56,7 +54,7 @@ internal class Node
 
     public void SortStartPoints(Point2D dest)
     {
-        StartPoints = [.. StartPoints.OrderBy(x => Point2D.TaxiDistance2D(dest, x))];
+        StartPoints = [.. StartPoints.OrderBy(x => Point2D.TaxiDistance2D(x, dest))];
     }
 
     public Point2D GetNextStartPoint()
@@ -76,7 +74,7 @@ internal class Node
 
         if((SubNodes.Sum() + SubNodes.Count - 1) > (TraceLine.Count - 1))
         {
-            Console.WriteLine("Traceline is too short!");
+            Console.WriteLine($"ERROR: Traceline is too short. ({SubNodes.Sum()} + {SubNodes.Count - 1}) >  {TraceLine.Count} ");
             return returnvalue;
         }
 
@@ -85,7 +83,7 @@ internal class Node
         {
             for(int j = 0; j < SubNodes[i]; j++)
             {
-                returnvalue += $"<circle cx=\"{TraceLine[traceLinePos].X}\" cy=\"{TraceLine[traceLinePos].Y}\" r=\"{SubNodeRadius}\" style=\"fill:none;stroke:black;stroke-width:3;fill-opacity:0.0\"/>\n";
+                returnvalue += $"<circle cx=\"{TraceLine[traceLinePos].X}\" cy=\"{TraceLine[traceLinePos].Y}\" r=\"{SubNodeRadius}\" style=\"stroke:black;stroke-width:3;fill-opacity:1.0\"/>\n";
 
                 traceLinePos++;
             }
@@ -129,25 +127,25 @@ internal class Node
     {
         int offset = KhodMap.GRID_SIZE / 2;
 
-        //from my source intersect at my radius, targeting first trace line. 
-
-        if (FinalPath.Count > 0)
+        if (FinalPath.Count == 0)
         {
-            TraceLine.Add(CalculateIntersection(WorldX, WorldY, Radius, KhodMap.GridToWorld(FinalPath.First(), offset)));
-
-            foreach (Point2D p in FinalPath)
-            {
-                TraceLine.Add(KhodMap.GridToWorld(p, offset));
-            }
-
-            TraceLine.Add(CalculateIntersection(TargetX, TargetY, TargetRadius, KhodMap.GridToWorld(FinalPath.Last(), offset)));
+            Console.WriteLine($"ERROR: No FinalPath for POS: {POS} R:{Radius}");
+            return "";
         }
-       // if(TargetRadius != -1) TraceLine.Add((TargetX, TargetY));
 
-        if (TraceLine.Count == 0) return "";
+        //from node source intersect at node radius, targeting first trace line. 
+
+        TraceLine.Add(CalculateIntersection(WorldX, WorldY, Radius, KhodMap.GridToWorld(FinalPath.First(), offset)));
+
+        foreach (Point2D p in FinalPath)
+        {
+            TraceLine.Add(KhodMap.GridToWorld(p, offset));
+        }
+
+        TraceLine.Add(CalculateIntersection(TargetX, TargetY, TargetRadius, KhodMap.GridToWorld(FinalPath.Last(), offset)));
 
         string pointList = String.Join(" ", TraceLine.Select(x => $"{x.X},{x.Y}"));
 
-        return $"<polyline points=\"" + pointList + "\"   style=\"fill:none;stroke:green;stroke-width:3\" />\n";
+        return $"<polyline points=\"" + pointList + "\" style=\"fill:none;stroke:green;stroke-width:3\"/>\n";
     }
 }

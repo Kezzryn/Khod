@@ -55,9 +55,14 @@ internal class KhodWord
 
     private readonly KhodMap khodMap;
 
-    public KhodWord(string text)
+    public bool Verbose { get; set; }
+
+    public KhodWord(string text, bool verbose = true)
     {
+        Verbose = verbose;
+        if (Verbose) Console.WriteLine($"Beginning parse of {text}");
         khodMap = new(35, 35);
+
 
         foreach ((Point2D source, int sourcePos) in point_to_pos)
         {
@@ -69,39 +74,45 @@ internal class KhodWord
             }
         }
 
+        if (Verbose) Console.WriteLine($"- Setting up nodes.");
         SetupNodes(text);
+        if (Verbose) Console.WriteLine($"- Starting Link Tracing.");
         CalcLinkTrace();
     }
 
     public void CalcLinkTrace()
     {
-        //Build pairs of start and target nodes.
+        if (Verbose) Console.WriteLine("-- Build pairs of start and target nodes");
         List<(Node start, Node end)> links = [];
 
         for (int toNode = 1; toNode < nodes.Count; toNode++)
         {
             int fromNode = toNode - 1;
+            if (Verbose) Console.WriteLine($"-- Adding link from node# {nodes[fromNode].POS} to {nodes[toNode].POS}");
 
             links.Add((nodes[fromNode], nodes[toNode]));
             nodes[fromNode].SortStartPoints(nodes[toNode].GridXY);
+
         }
 
-        //resort pairs from short to long. 
+        if (Verbose) Console.WriteLine("-- Sorting start/end pairs.");
+         
         List<(Node fromNode, Node toNode)> shortToLong = [.. links.OrderBy(x => distance[x.start.POS][x.end.POS])];
 
         for (int currNode = 0; currNode < shortToLong.Count; currNode++)
         {
-            Console.WriteLine($"Current Node: {currNode}");
             (Node fromNode, Node toNode) = shortToLong[currNode];
+            if (Verbose) Console.WriteLine($"-- Testing {fromNode.POS} to {toNode.POS}.");
             if (fromNode.FinalPath.Count > 0)
             {
+                if (Verbose) Console.WriteLine("-- Unblocking path.");
                 khodMap.UnblockPath(fromNode.FinalPath);
                 fromNode.FinalPath.Clear();
             }
             khodMap.EndPosition = toNode.GridXY;
             khodMap.EndRing = [.. toNode.EndPoints];
             khodMap.MinSteps = fromNode.MinTraceDistance();
-
+            
             bool isDone = false;
             bool isPath = false;
             do
@@ -124,12 +135,12 @@ internal class KhodWord
                         fromNode.TargetX = toNode.WorldX;
                         fromNode.TargetY = toNode.WorldY;
 
-                        khodMap.BlockPath();
+                        khodMap.BlockPath(khodMap.FinalPath);
 
                         isDone = true;
                         isPath = true;
                     }
-                }
+            }
             } while (!isDone);
 
             if (!isPath)
@@ -167,7 +178,6 @@ internal class KhodWord
         const int RADII_INCREASE = 7;
         const int DEFAULT_RADIUS = 20;
 
-        // _shapes.Add(new Preset(PresetTypes.Charge));
         for (int i = 0; i < text.Length; i++)
         {
             int currNodePos = char_to_pos[text[i]];
@@ -229,17 +239,18 @@ internal class KhodWord
 
     public override string ToString()
     {
-        const string HTML_HEADER = "<!DOCTYPE html>\n<html>\n<body>\n";
+        
         const string SVG_HEADER = "<svg height=\"600\" width=\"600\" xmlns=\"http://www.w3.org/2000/svg\">\n";
         //const string SVG_STYLE = "<g stroke-width=\"2\" fill=\"none\">\n";
 
-        string grid = khodMap.Grid();
+        //string grid = khodMap.Grid();
         string body = string.Join("\n", nodes.Select(x => x.GetSVG()));
 
+
         const string SVG_FOOTER = "</svg>\n"; //</g>\n
-        const string HTML_FOOTER = "</body>\n</html>";
 
         //return HTML_HEADER + SVG_HEADER + SVG_STYLE + grid + body + SVG_FOOTER + HTML_FOOTER;
-        return HTML_HEADER + SVG_HEADER + grid + body + SVG_FOOTER + HTML_FOOTER;
+        //return SVG_HEADER + grid + body + SVG_FOOTER;
+        return SVG_HEADER + body + SVG_FOOTER;
     }
 }

@@ -1,29 +1,16 @@
 ﻿using Khod;
 
 
-//string word = args[0] ?? "motherboard";
-//string path = args[1] ?? "F:\\temp\\kohd.html";
+string words = "ad homing abracadabra motherboard adbdcdadbdcd";
+string path = "kohd.html";
 
 
-//Point2D test = new();
-
-//for (int i = 0; i < 4; i++)
-//{
-//    Console.WriteLine(i);
-//    foreach (Point2D p in test.GetNeighborsAtRadius(i))
-//    {
-//        Console.WriteLine(p);
-//    }
-//    Console.WriteLine();
-//}
-
-//KhodWord khod = new("ad");
-//KhodWord khod = new("homing");
-//KhodWord khod = new("abracadabra");
-KhodWord khod = new("motherboard");
-//KhodWord khod = new("adbdcdadbdcd");
+string translated = String.Join("", words.Split(" ", StringSplitOptions.RemoveEmptyEntries).Select(x => new KhodWord(x)));
 
 
+const string HTML_HEADER = "<!DOCTYPE html>\n<html>\n<body>\n";
+const string HTML_FOOTER = "</body>\n</html>";
 
-Console.WriteLine(khod.ToString());
+string outputString = HTML_HEADER + translated + HTML_FOOTER;
 
+File.WriteAllText(path, outputString);

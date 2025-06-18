@@ -16,7 +16,8 @@ internal class KhodMap
     public List<Point2D> EndRing = [];
     public int MinSteps { get; set; } = 0;
 
-    private readonly Dictionary<Point2D, (int gScore, int fScore, Point2D? parent)> stepCounter = [];
+    private readonly Dictionary<Point2D, (float gScore, float fScore, Point2D? parent)> stepCounter = [];
+    //private readonly Dictionary<Point2D, (int gScore, int fScore, Point2D? parent)> stepCounter = [];
 
     public static int GRID_SIZE = 15;
 
@@ -26,8 +27,6 @@ internal class KhodMap
     public const int OPEN = 0;
     public const int BLOCKED = 100;
     public const int SLOW_SQUARE = 200;
-
-    private const int MAX_STEPS = 70;
 
     public KhodMap(int maxX, int maxY)
     {
@@ -39,16 +38,18 @@ internal class KhodMap
         }
     }
 
-    private int TestStep(Point2D cursor, Point2D nextStep)
+    private float TestStep(Point2D cursor, Point2D nextStep)
     {
+        float returnValue = -1;
+
         //off the map
-        if (!_theMap.TryGetValue(nextStep, out int nextValue)) return -1;
+        if (!_theMap.TryGetValue(nextStep, out int nextValue)) return returnValue;
 
         //Standard don't path here
-        if (nextValue == BLOCKED) return -1; 
+        if (nextValue == BLOCKED) return returnValue; 
 
         // corner case to stop long lines from moving around the start position.
-        if (cursor == StartPosition && _theMap[nextStep] == SLOW_SQUARE) return -1;
+        if (cursor == StartPosition && _theMap[nextStep] == SLOW_SQUARE) return returnValue;
 
         //Don't cross a diagonal. 
         if (!cursor.IsOnGridLine(nextStep))
@@ -56,12 +57,16 @@ internal class KhodMap
             Point2D diag1 = new(nextStep.X, cursor.Y);
             Point2D diag2 = new(cursor.X, nextStep.Y);
 
-            if (_theMap[diag1] == BLOCKED && _theMap[diag2] == BLOCKED) return -1;
+            _theMap.TryGetValue(diag1, out int value1);
+            _theMap.TryGetValue(diag2, out int value2);
+            if (value1 == BLOCKED && value2 == BLOCKED) return returnValue;
         }
+
+        returnValue = cursor.IsOnGridLine(nextStep) ? 1 : 1.5f;
 
         //Made it!
         stepCounter.TryAdd(nextStep, (int.MaxValue, int.MaxValue, null));
-        return nextValue == SLOW_SQUARE ? 10 : 1;
+        return nextValue == SLOW_SQUARE ? 50 : returnValue;
     }
 
     private static IEnumerable<Point2D> NextSteps(Point2D cursor)
@@ -96,9 +101,9 @@ internal class KhodMap
         return p;
     }
 
-    public void BlockPath()
+    public void BlockPath(List<Point2D> path)
     {
-        foreach (Point2D p in FinalPath)
+        foreach (Point2D p in path)
         {
             MarkMap(p, BLOCKED);
         }
@@ -129,32 +134,32 @@ internal class KhodMap
         return -1; 
     }
 
-    public string Grid()
-    {
-        return ""; 
-        string returnValue = "";
-        foreach ((Point2D p, int value) in _theMap.Where(x => x.Value != 0))
-        {
-            (int x, int y) = GridToWorld(p);
-            string color = value switch
-            {
-                BLOCKED => "red",
-                SLOW_SQUARE => "yellow",
-                _ => "blue"
-            };
+    //public string Grid()
+    //{
+    //    return ""; 
+    //    string returnValue = "";
+    //    foreach ((Point2D p, int value) in _theMap.Where(x => x.Value != 0))
+    //    {
+    //        (int x, int y) = GridToWorld(p);
+    //        string color = value switch
+    //        {
+    //            BLOCKED => "red",
+    //            SLOW_SQUARE => "yellow",
+    //            _ => "blue"
+    //        };
 
-            returnValue += $"<rect x={x} y={y} width={GRID_SIZE} height={GRID_SIZE} style=\"fill:{color};fill-opacity:0.3\"/>\n";
-        }
+    //        returnValue += $"<rect x={x} y={y} width={GRID_SIZE} height={GRID_SIZE} style=\"fill:{color};fill-opacity:0.3\"/>\n";
+    //    }
 
-        //debug diagonal
-        //for (int i = 0; i < 35; i++)
-        //{
-        //    returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:green;fill-opacity:0.5\"/>\n";
-        //}
+    //    //debug diagonal
+    //    //for (int i = 0; i < 35; i++)
+    //    //{
+    //    //    returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:green;fill-opacity:0.5\"/>\n";
+    //    //}
 
 
-        return returnValue;
-    }
+    //    return returnValue;
+    //}
     private static int Heuristic(Point2D a, Point2D b) => Point2D.TaxiDistance2D(a, b);
 
     public bool A_Star() => A_Star(StartPosition, EndPosition);
@@ -164,7 +169,7 @@ internal class KhodMap
         FinalPath.Clear();
         stepCounter.Clear();
 
-        PriorityQueue<Point2D, int> searchQueue = new(); //we enque based on fScore + h, the distance travelled, plus taxi distance guess to destination.
+        PriorityQueue<Point2D, float> searchQueue = new(); //we enque based on fScore + h, the distance travelled, plus taxi distance guess to destination.
         HashSet<Point2D> inSearchQueue = []; //we add this because we don't have a way to query the queue to see if a specific item is in it.
 
         int gScore = 0; //gScore is value of the path from start to here
@@ -206,11 +211,11 @@ internal class KhodMap
             foreach (Point2D nextStep in NextSteps(cursor))
             {
                 //bounds and valid move check. 
-                int dist = TestStep(cursor, nextStep);
+                float dist = TestStep(cursor, nextStep);
                 if (dist == -1) continue;
 
                 //tentative_gScore := gScore[current] + d(current, neighbor)
-                int t_gScore = stepCounter[cursor].gScore + dist;
+                float t_gScore = stepCounter[cursor].gScore + dist;
 
                 //if tentative_gScore < gScore[neighbor]
                 if (t_gScore < stepCounter[nextStep].gScore)
