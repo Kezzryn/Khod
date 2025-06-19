@@ -15,6 +15,7 @@ internal class KhodMap
 
     public List<Point2D> EndRing = [];
     public int MinSteps { get; set; } = 0;
+    public int NumSteps = -1;
 
     private readonly Dictionary<Point2D, (float gScore, float fScore, Point2D? parent)> stepCounter = [];
     //private readonly Dictionary<Point2D, (int gScore, int fScore, Point2D? parent)> stepCounter = [];
@@ -22,7 +23,6 @@ internal class KhodMap
     public static int GRID_SIZE = 15;
 
     //0 is open 
-    //1-9 are proximity to nodes
     //100 is another trace, or charge/ground, or ... whatever.
     public const int OPEN = 0;
     public const int BLOCKED = 100;
@@ -62,21 +62,17 @@ internal class KhodMap
             if (value1 == BLOCKED && value2 == BLOCKED) return returnValue;
         }
 
-        returnValue = cursor.IsOnGridLine(nextStep) ? 1 : 1.5f;
-
         //Made it!
         stepCounter.TryAdd(nextStep, (int.MaxValue, int.MaxValue, null));
+        
+        //Figure out our steps.
+        returnValue = cursor.IsOnGridLine(nextStep) ? 1 : 1.5f;
+        if (nextValue == SLOW_SQUARE && EndRing.Contains(nextStep)) return 1; //free step to end square.
+        
         return nextValue == SLOW_SQUARE ? 50 : returnValue;
     }
 
-    private static IEnumerable<Point2D> NextSteps(Point2D cursor)
-    {
-        //if (_theMap[cursor] == _theMap[StartPosition])
-        //{
-        return cursor.GetAllNeighbors();
-        //}
-        //return cursor.GetOrthogonalNeighbors();
-    }
+    private static IEnumerable<Point2D> NextSteps(Point2D cursor) => cursor.GetAllNeighbors();
 
     public static (int x, int y) GridToWorld(Point2D p, int offset = 0)
     {
@@ -115,6 +111,8 @@ internal class KhodMap
         {
             MarkMap(p, OPEN);
         }
+        MarkMap(path.First(), SLOW_SQUARE);
+        MarkMap(path.Last(), SLOW_SQUARE);
     }
 
     public void MarkMap(Point2D point, int value)
@@ -134,40 +132,39 @@ internal class KhodMap
         return -1; 
     }
 
-    //public string Grid()
-    //{
-    //    return ""; 
-    //    string returnValue = "";
-    //    foreach ((Point2D p, int value) in _theMap.Where(x => x.Value != 0))
-    //    {
-    //        (int x, int y) = GridToWorld(p);
-    //        string color = value switch
-    //        {
-    //            BLOCKED => "red",
-    //            SLOW_SQUARE => "yellow",
-    //            _ => "blue"
-    //        };
+    public string Grid()
+    {
+        string returnValue = "";
+        foreach ((Point2D p, int value) in _theMap.Where(x => x.Value != 0))
+        {
+            (int x, int y) = GridToWorld(p);
+            string color = value switch
+            {
+                BLOCKED => "red",
+                SLOW_SQUARE => "yellow",
+                _ => "blue"
+            };
 
-    //        returnValue += $"<rect x={x} y={y} width={GRID_SIZE} height={GRID_SIZE} style=\"fill:{color};fill-opacity:0.3\"/>\n";
-    //    }
+            returnValue += $"<rect x={x} y={y} width={GRID_SIZE} height={GRID_SIZE} style=\"fill:{color};fill-opacity:0.3\"/>\n";
+        }
 
-    //    //debug diagonal
-    //    //for (int i = 0; i < 35; i++)
-    //    //{
-    //    //    returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:green;fill-opacity:0.5\"/>\n";
-    //    //}
+        //debug diagonal
+        //for (int i = 0; i < 35; i++)
+        //{
+        //    returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:green;fill-opacity:0.5\"/>\n";
+        //}
 
-
-    //    return returnValue;
-    //}
+        return returnValue;
+    }
     private static int Heuristic(Point2D a, Point2D b) => Point2D.TaxiDistance2D(a, b);
 
-    public bool A_Star() => A_Star(StartPosition, EndPosition);
+    public int A_Star() => A_Star(StartPosition, EndPosition);
 
-    public bool A_Star(Point2D start, Point2D end)
+    public int A_Star(Point2D start, Point2D end)
     {
         FinalPath.Clear();
         stepCounter.Clear();
+        NumSteps = -1;
 
         PriorityQueue<Point2D, float> searchQueue = new(); //we enque based on fScore + h, the distance travelled, plus taxi distance guess to destination.
         HashSet<Point2D> inSearchQueue = []; //we add this because we don't have a way to query the queue to see if a specific item is in it.
@@ -200,7 +197,7 @@ internal class KhodMap
                 if (FinalPath.Count >= MinSteps)
                 {
                     FinalPath.Reverse();
-                    return true;
+                    return FinalPath.Count;
                 }
 
                 //Failed to find a valid MinStep path. 
@@ -234,6 +231,6 @@ internal class KhodMap
                 }
             }
         }
-        return false;
+        return -1;
     }
 }

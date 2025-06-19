@@ -1,7 +1,7 @@
 ﻿using Khod;
 
 
-string words = "ad homing abracadabra motherboard adbdcdadbdcd";
+string words = "ad homing abracadabra";// motherboard adbdcdadbdcd";
 string path = "kohd.html";
 
 

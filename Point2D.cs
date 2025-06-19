@@ -114,7 +114,7 @@ public struct Point2D :
 
     public readonly IEnumerable<Point2D> GetOrthogonalNeighbors(int step = 1)
     {
-        foreach(Direction dir in Enum.GetValues(typeof(Direction)))
+        foreach(Direction dir in Enum.GetValues<Direction>())
         {
             yield return OrthogonalNeighbor(dir, step);
         }

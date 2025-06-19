@@ -1,4 +1,5 @@
 ﻿using BKH.Geometry;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Khod;
 
@@ -55,9 +56,11 @@ internal class KhodWord
 
     private readonly KhodMap khodMap;
 
+    private string chargeNode = "";
+
     public bool Verbose { get; set; }
 
-    public KhodWord(string text, bool verbose = true)
+    public KhodWord(string text, bool verbose = false)
     {
         Verbose = verbose;
         if (Verbose) Console.WriteLine($"Beginning parse of {text}");
@@ -92,8 +95,16 @@ internal class KhodWord
 
             links.Add((nodes[fromNode], nodes[toNode]));
             nodes[fromNode].SortStartPoints(nodes[toNode].GridXY);
-
         }
+
+        //build charge
+        (Node firstLink, _) = links.First();
+        firstLink.AddChargeLinkTrace(khodMap);
+
+        //build a ground.
+        (_, Node lastLink) = links.Last();
+        lastLink.AddGroundLinkTrace(khodMap);  
+
 
         if (Verbose) Console.WriteLine("-- Sorting start/end pairs.");
          
@@ -103,14 +114,14 @@ internal class KhodWord
         {
             (Node fromNode, Node toNode) = shortToLong[currNode];
             if (Verbose) Console.WriteLine($"-- Testing {fromNode.POS} to {toNode.POS}.");
-            if (fromNode.FinalPath.Count > 0)
+            if (fromNode.GridPath.Count > 0)
             {
                 if (Verbose) Console.WriteLine("-- Unblocking path.");
-                khodMap.UnblockPath(fromNode.FinalPath);
-                fromNode.FinalPath.Clear();
+                khodMap.UnblockPath(fromNode.GridPath);
+                fromNode.GridPath.Clear();
             }
             khodMap.EndPosition = toNode.GridXY;
-            khodMap.EndRing = [.. toNode.EndPoints];
+            khodMap.EndRing = [.. toNode.EdgePoints];
             khodMap.MinSteps = fromNode.MinTraceDistance();
             
             bool isDone = false;
@@ -127,10 +138,10 @@ internal class KhodWord
                     if (khodMap.MapValueAt(khodMap.StartPosition) == KhodMap.BLOCKED) continue;
                     //Console.WriteLine($"Trying from {khodMap.StartPosition} ");
 
-                    if (khodMap.A_Star())
+                    if (khodMap.A_Star() != -1)
                     {
-                        fromNode.FinalPath = [.. khodMap.FinalPath]; //make backup copy for possible unmarking later.
-
+                        fromNode.GridPath = [.. khodMap.FinalPath]; //make backup copy for possible unmarking later.
+                        if (Verbose) Console.WriteLine($"-- FinalPath found. {fromNode.GridPath.First()} to {fromNode.GridPath.Last()}");
                         fromNode.TargetRadius = toNode.Radius;
                         fromNode.TargetX = toNode.WorldX;
                         fromNode.TargetY = toNode.WorldY;
@@ -140,17 +151,18 @@ internal class KhodWord
                         isDone = true;
                         isPath = true;
                     }
-            }
+                }
             } while (!isDone);
 
             if (!isPath)
             {
-                //Console.WriteLine($"Backing up.");
+                Console.WriteLine($"-- No path found.");
                 //unblock the current node.
                 fromNode.ResetStartPointIndex();
-                if(fromNode.FinalPath.Count != 0)
+                if(fromNode.GridPath.Count != 0)
                 {
-                    khodMap.UnblockPath(fromNode.FinalPath);
+                    khodMap.UnblockPath(fromNode.GridPath);
+                    fromNode.GridPath.Clear();
                 }
 
                 //back up and try again.
@@ -243,14 +255,14 @@ internal class KhodWord
         const string SVG_HEADER = "<svg height=\"600\" width=\"600\" xmlns=\"http://www.w3.org/2000/svg\">\n";
         //const string SVG_STYLE = "<g stroke-width=\"2\" fill=\"none\">\n";
 
-        //string grid = khodMap.Grid();
+        string grid = khodMap.Grid();
         string body = string.Join("\n", nodes.Select(x => x.GetSVG()));
 
 
         const string SVG_FOOTER = "</svg>\n"; //</g>\n
 
         //return HTML_HEADER + SVG_HEADER + SVG_STYLE + grid + body + SVG_FOOTER + HTML_FOOTER;
-        //return SVG_HEADER + grid + body + SVG_FOOTER;
-        return SVG_HEADER + body + SVG_FOOTER;
+        return SVG_HEADER + grid + body + SVG_FOOTER;
+        //return SVG_HEADER + body + SVG_FOOTER;
     }
 }
