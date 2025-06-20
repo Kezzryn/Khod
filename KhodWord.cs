@@ -1,4 +1,5 @@
 ﻿using BKH.Geometry;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Khod;
@@ -56,16 +57,13 @@ internal class KhodWord
 
     private readonly KhodMap khodMap;
 
-    private string chargeNode = "";
-
-    public bool Verbose { get; set; }
+    public bool Verbose { get; set; } = false;
 
     public KhodWord(string text, bool verbose = false)
     {
         Verbose = verbose;
         if (Verbose) Console.WriteLine($"Beginning parse of {text}");
         khodMap = new(35, 35);
-
 
         foreach ((Point2D source, int sourcePos) in point_to_pos)
         {
@@ -100,20 +98,27 @@ internal class KhodWord
         //build charge
         (Node firstLink, _) = links.First();
         firstLink.AddChargeLinkTrace(khodMap);
-
+       
         //build a ground.
         (_, Node lastLink) = links.Last();
-        lastLink.AddGroundLinkTrace(khodMap);  
-
+        lastLink.AddGroundLinkTrace(khodMap);
 
         if (Verbose) Console.WriteLine("-- Sorting start/end pairs.");
          
         List<(Node fromNode, Node toNode)> shortToLong = [.. links.OrderBy(x => distance[x.start.POS][x.end.POS])];
 
+        //bool displayMap = false;
         for (int currNode = 0; currNode < shortToLong.Count; currNode++)
         {
             (Node fromNode, Node toNode) = shortToLong[currNode];
-            if (Verbose) Console.WriteLine($"-- Testing {fromNode.POS} to {toNode.POS}.");
+            //if (fromNode.POS == 3 && toNode.POS == 7)
+            //{
+            //    khodMap.DisplayMap();
+            //    displayMap = true;
+            //    Debugger.Break();
+            //}
+
+            if (Verbose) Console.WriteLine($"-- Trying {fromNode.POS} to {toNode.POS}.");
             if (fromNode.GridPath.Count > 0)
             {
                 if (Verbose) Console.WriteLine("-- Unblocking path.");
@@ -140,6 +145,7 @@ internal class KhodWord
 
                     if (khodMap.A_Star() != -1)
                     {
+                       // if (displayMap) khodMap.DisplayMap();
                         fromNode.GridPath = [.. khodMap.FinalPath]; //make backup copy for possible unmarking later.
                         if (Verbose) Console.WriteLine($"-- FinalPath found. {fromNode.GridPath.First()} to {fromNode.GridPath.Last()}");
                         fromNode.TargetRadius = toNode.Radius;
@@ -156,7 +162,8 @@ internal class KhodWord
 
             if (!isPath)
             {
-                Console.WriteLine($"-- No path found.");
+                if (Verbose) Console.WriteLine($"-- No path found.");
+                if (Verbose) khodMap.DisplayMap();
                 //unblock the current node.
                 fromNode.ResetStartPointIndex();
                 if(fromNode.GridPath.Count != 0)
@@ -251,7 +258,6 @@ internal class KhodWord
 
     public override string ToString()
     {
-        
         const string SVG_HEADER = "<svg height=\"600\" width=\"600\" xmlns=\"http://www.w3.org/2000/svg\">\n";
         //const string SVG_STYLE = "<g stroke-width=\"2\" fill=\"none\">\n";
 

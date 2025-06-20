@@ -1,11 +1,13 @@
 ﻿using Khod;
 
 
-string words = "ad homing abracadabra";// motherboard adbdcdadbdcd";
-string path = "kohd.html";
+//string words = "ad homing abracadabra hello world";// motherboard adbdcdadbdcd";
+//string words = "hello world";
+string words = "auchtertool adbdcdadbdcd";
+string path = "kohd1.html";
 
 
-string translated = String.Join("", words.Split(" ", StringSplitOptions.RemoveEmptyEntries).Select(x => new KhodWord(x)));
+string translated = String.Join("", words.Split(" ", StringSplitOptions.RemoveEmptyEntries).Select(x => new KhodWord(x)).AsParallel());
 
 
 const string HTML_HEADER = "<!DOCTYPE html>\n<html>\n<body>\n";

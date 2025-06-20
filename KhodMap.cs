@@ -19,6 +19,8 @@ internal class KhodMap
 
     private readonly Dictionary<Point2D, (float gScore, float fScore, Point2D? parent)> stepCounter = [];
     //private readonly Dictionary<Point2D, (int gScore, int fScore, Point2D? parent)> stepCounter = [];
+    public Point2D MapMin { get { return new Point2D(_theMap.Keys.Select(k => k.X).Min(), _theMap.Keys.Select(k => k.Y).Min()); } }
+    public Point2D MapMax { get { return new Point2D(_theMap.Keys.Select(k => k.X).Max(), _theMap.Keys.Select(k => k.Y).Max()); } }
 
     public static int GRID_SIZE = 15;
 
@@ -40,16 +42,14 @@ internal class KhodMap
 
     private float TestStep(Point2D cursor, Point2D nextStep)
     {
-        float returnValue = -1;
-
         //off the map
-        if (!_theMap.TryGetValue(nextStep, out int nextValue)) return returnValue;
+        if (!_theMap.TryGetValue(nextStep, out int nextValue)) return -1;
 
         //Standard don't path here
-        if (nextValue == BLOCKED) return returnValue; 
+        if (nextValue == BLOCKED) return -1; 
 
         // corner case to stop long lines from moving around the start position.
-        if (cursor == StartPosition && _theMap[nextStep] == SLOW_SQUARE) return returnValue;
+       // if (cursor == StartPosition && _theMap[nextStep] == SLOW_SQUARE) return -1;
 
         //Don't cross a diagonal. 
         if (!cursor.IsOnGridLine(nextStep))
@@ -57,19 +57,41 @@ internal class KhodMap
             Point2D diag1 = new(nextStep.X, cursor.Y);
             Point2D diag2 = new(cursor.X, nextStep.Y);
 
-            _theMap.TryGetValue(diag1, out int value1);
-            _theMap.TryGetValue(diag2, out int value2);
-            if (value1 == BLOCKED && value2 == BLOCKED) return returnValue;
+            if(_theMap.TryGetValue(diag1, out int value1) && 
+               _theMap.TryGetValue(diag2, out int value2) && 
+               value1 == BLOCKED && value2 == BLOCKED) return -1;
         }
 
         //Made it!
         stepCounter.TryAdd(nextStep, (int.MaxValue, int.MaxValue, null));
-        
+
+        Point2D prevStep = new(-1,-1);
+        Point2D dir = new(0,0); 
+
+        if (stepCounter[cursor].parent is not null)
+        {
+            prevStep = (Point2D)stepCounter[cursor].parent!;
+            dir = cursor - prevStep;
+        }
+
+        bool isMovingInAline = nextStep == cursor + dir;
+
         //Figure out our steps.
-        returnValue = cursor.IsOnGridLine(nextStep) ? 1 : 1.5f;
-        if (nextValue == SLOW_SQUARE && EndRing.Contains(nextStep)) return 1; //free step to end square.
-        
-        return nextValue == SLOW_SQUARE ? 50 : returnValue;
+        if (nextValue == SLOW_SQUARE)
+        {
+            //try to get into the End Ring on a direct line.
+            if (EndRing.Contains(nextStep)) return isMovingInAline ? 0.0f : 0.5f;
+            //otherwise slow squares suck. 
+            return 50;
+        }
+
+        float baseStep = 1;
+        // drift along with other traces. 
+        if (nextStep.GetOrthogonalNeighbors().Any(x => _theMap.TryGetValue(x, out int value) && value == BLOCKED)) baseStep -= 0.1f;
+        // prefer to move in a straight line.
+        if (isMovingInAline) baseStep -= 0.1f;
+
+        return  cursor.IsOnGridLine(nextStep) ? baseStep : baseStep + 0.5f; 
     }
 
     private static IEnumerable<Point2D> NextSteps(Point2D cursor) => cursor.GetAllNeighbors();
@@ -118,7 +140,7 @@ internal class KhodMap
     public void MarkMap(Point2D point, int value)
     {
         if(!_theMap.TryAdd(point, value))
-        {
+        {   
             _theMap[point] = value;     
         }
     }
@@ -129,10 +151,11 @@ internal class KhodMap
         {
             return value;
         }
+        Console.WriteLine($"Value out of bounds. {point}");
         return -1; 
     }
 
-    public string Grid()
+    public string Grid(bool doDiag = false)
     {
         string returnValue = "";
         foreach ((Point2D p, int value) in _theMap.Where(x => x.Value != 0))
@@ -148,14 +171,52 @@ internal class KhodMap
             returnValue += $"<rect x={x} y={y} width={GRID_SIZE} height={GRID_SIZE} style=\"fill:{color};fill-opacity:0.3\"/>\n";
         }
 
-        //debug diagonal
-        //for (int i = 0; i < 35; i++)
-        //{
-        //    returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:green;fill-opacity:0.5\"/>\n";
-        //}
-
+        if(doDiag)
+        {
+            for (int i = 0; i < 35; i++)
+            {
+                returnValue += $"<rect x={i * GRID_SIZE} y={i * GRID_SIZE} width={GRID_SIZE} height={GRID_SIZE} style=\"fill=:{(int.IsEvenInteger(i) ? "green" : "pink")};fill-opacity:0.5\"/>\n";
+            }
+        }
         return returnValue;
     }
+
+    public void DisplayMap()
+    {
+        for (int y = MapMin.Y; y <= MapMax.Y; y++)
+        {
+            for (int x = MapMin.X; x <= MapMax.X; x++)
+            {
+                Point2D current = new(x, y);
+
+                if (_theMap.TryGetValue(current, out int value))
+                {
+                    switch (value)
+                    {
+                        case OPEN:
+                            Console.Write(' ');
+                            break;
+                        case BLOCKED:
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.Write('X');
+                            break;
+                        case SLOW_SQUARE:
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.Write('.');
+                            break;
+                        default:
+                            Console.ForegroundColor = ConsoleColor.Blue;
+                            Console.Write('?');
+                            break;
+                    }
+                }
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+        }
+        Console.WriteLine();
+    }
+
     private static int Heuristic(Point2D a, Point2D b) => Point2D.TaxiDistance2D(a, b);
 
     public int A_Star() => A_Star(StartPosition, EndPosition);

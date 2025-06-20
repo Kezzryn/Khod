@@ -20,8 +20,6 @@ internal class Node
     public readonly List<int> SubNodes = [];
     public List<Point2D> GridPath = [];
     private string ChargeLinkTrace = "";
-    private string GroundLinkTrace = "";
-
 
     public Node((int X, int Y) worldXY, int position, int radius, int subnodeRadius = 5)
     {
@@ -129,7 +127,7 @@ internal class Node
     {
         int offset = KhodMap.GRID_SIZE / 2;
 
-        if (GroundLinkTrace != "") return GroundLinkTrace;
+        // if (GroundLinkTrace != "") return GroundLinkTrace;
         if (GridPath.Count == 0)
         {
             Console.WriteLine($"ERROR: No FinalPath for POS: {POS} R:{Radius}");
@@ -145,7 +143,10 @@ internal class Node
             TraceLine.Add(KhodMap.GridToWorld(p, offset));
         }
 
-        TraceLine.Add(CalculateIntersection(TargetX, TargetY, TargetRadius, KhodMap.GridToWorld(GridPath.Last(), offset)));
+        if (TargetX != -1)
+        { 
+            TraceLine.Add(CalculateIntersection(TargetX, TargetY, TargetRadius, KhodMap.GridToWorld(GridPath.Last(), offset))); 
+        }
 
         string pointList = String.Join(" ", TraceLine.Select(x => $"{x.X},{x.Y}"));
 
@@ -227,16 +228,28 @@ internal class Node
 
         Point2D.Direction dir = Point2D.Direction.Right;
         Point2D cursor = GridXY.OrthogonalNeighbor(dir, step);
-        Point2D endChargePos = GridXY.OrthogonalNeighbor(dir, step + MinTraceDistance() + 1);
-
-        //Point2D cursor = startChargePos;
         
-        Console.WriteLine()
-        while (cursor != endChargePos)
+        GridPath.Add(cursor);
+        cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Right);
+        GridPath.Add(cursor);
+        cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Right);
+        cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Up);
+        GridPath.Add(cursor);
+
+        for(int i = 0; i < MinTraceDistance() -1; i++)
         {
-            khodMap.MarkMap(cursor, KhodMap.BLOCKED);
+            cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Up);
             GridPath.Add(cursor);
-            cursor = cursor.OrthogonalNeighbor(dir);
+        }
+
+        cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Left);
+        GridPath.Add(cursor);
+        cursor = cursor.OrthogonalNeighbor(Point2D.Direction.Right, 2);
+        GridPath.Add(cursor);
+
+        foreach (Point2D p in GridPath)
+        {
+            khodMap.MarkMap(p, KhodMap.BLOCKED);
         }
     }
 }
